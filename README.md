@@ -1,10 +1,7 @@
 前言：
 
-        今年疫情以来一直在尝试开辟第三收入点，例如基金交易，股票交易，在楼兰师傅的指导下，简单编写了一个优化定投收益的小脚本，脚本不对接交易平台，只调用真实交易数据进行分析和投资利率计算。
+        代码已更新，目前实现功能按照七天计算平均值，详细请看代码average()
+        基金算法：（月预计投资总额/当月天数）* 距离上次投资相差天数
 
-        基金算法：（总投资额度-已投资额度）/（本月天数）*（1+（100*七天平均净值））
-
-由于脚本还存在不少bug和不足，以下仅仅是初稿，附github链接：
-
-https://github.com/QmF0c3UK/-Fixed-investment-transaction.git
+脚本为v1.0版本，附github链接：https://github.com/QmF0c3UK/-Fixed-investment-transaction.git
 
