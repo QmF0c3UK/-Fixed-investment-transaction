@@ -11,26 +11,23 @@ banner = """
                         C0de by  @batsu                  
  """
 print(banner)
+# -*- coding:utf-8 -*-
+
+
 import requests
 import json
 import time
 import datetime
 
 session = requests.Session()
-
-id = '002191' #基金ID
-startDate = "2019-10-31"
-endDate = datetime.date.today()
+id = '002190' #基金ID
 moneny = 2000 #月投资金额：
 usemoney = 0 #以投资金额
-proxies={'http': '127.0.0.1:8080'}
-Numlen = 1
-
 paramsGet = {"fundCode": id,
              "pageIndex": "1",
-             "endDate": endDate,
-             "pageSize": Numlen,
-             "startDate": startDate,
+             "endDate": "",
+             "pageSize": "1000",
+             "startDate": "2019.12.10",
              "_": int(time.time())}
 headers = {"Accept": "*/*",
            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",
@@ -48,18 +45,24 @@ OutData = {'下次定投日': '',
            '总份额': 0
            }
 
+
 def GetName():  ##获取基金名称##
     try:
         response = session.get("http://api.fund.eastmoney.com/fund/fundgz", params=paramsGet, headers=headers)
         return json.loads(response.text)['Data'][0]['name']
     except:
-        print(">>>报错了兄弟:2<<<")
+        print(">>>报错了兄弟:1<<<")
+
+def eomonth(date_object):  ##计算当月天数##
+    if date_object.month == 12:
+        next_month_first_date = datetime.date(date_object.year + 1, 1, 1)
+    else:
+        next_month_first_date = datetime.date(date_object.year, date_object.month + 1, 1)
+    return next_month_first_date - datetime.timedelta(1)
 
 def GetData(): ##获取所有数据##
     try:
-        response = session.get("http://api.fund.eastmoney.com/f10/lsjz", params=paramsGet, headers=headers,
-                               proxies=proxies)
-        # print(response.url) #获取url
+        response = session.get("http://api.fund.eastmoney.com/f10/lsjz", params=paramsGet, headers=headers)
         for i in json.loads(response.text)['Data']['LSJZList']:
             # print("时间：%s " % i['FSRQ'], "单位净值为：%s" % i['DWJZ'], "累计净值为：%s" % i['LJJZ'], "日增长率为：%s" % i['JZZZL'])
             data = {
@@ -73,44 +76,69 @@ def GetData(): ##获取所有数据##
         # return NewData
     except:
         print(">>>报错了兄弟:1<<<")
+
 def Calculation(week_data,avg):
-    if len(week_data) >= 7:
-        print(7)
-        print(week_data, avg)
-    elif len(week_data) > 0:
-        print('大于0')
-        print(week_data, avg)
+    # UnusedMoneny = moneny - usemoney #计算使用额度，每月重置
+    # NumDays = eomonth(datetime.datetime.strptime(week_data[7]['日期'], '%Y-%m-%d')).day #最后一天的月份天数
+    # Remainingday = 0 #已投资天数
+    if week_data[7]['累计净值为'] < avg:
+        DayTR = moneny/eomonth(datetime.datetime.strptime(week_data[7]['日期'], '%Y-%m-%d')).day * (1+(100*(avg - week_data[7]['累计净值为'])))
+        SumTR = OutData['总投入'] + DayTR
+        SumFE = OutData['总份额'] + DayTR/week_data[7]['累计净值为']
+        SumJZ = SumFE * week_data[7]['累计净值为'] #总价值
+        SumSY = '{:.2%}'.format((SumJZ-SumTR)/SumTR)
+        OutData.update({'该日净值': week_data[7]['累计净值为'],
+                        '下次定投日': week_data[7]['日期'],
+                        '日投入': DayTR,
+                        '总投入': SumTR,
+                        '总份额': SumFE,
+                        '总价值': SumJZ,
+                        '总收益率': SumSY})
+        # print('%s-%s累计净值(%s)小于前七天平均净值(%s)，建议买入' % (week_data[0]['日期'], week_data[6]['日期'], week_data[7]['累计净值为'], avg))
+        print("下次定投日：%s    该日净值为：%s    该日投入：%s     总收益率：%s    总投入：%s    总价值：%s    总份额：%s"  % (week_data[7]['日期'], week_data[7]['累计净值为'], DayTR, SumSY, SumTR, SumJZ, SumFE))
+    # elif week_data[7]['累计净值为'] == avg:
+    #     print('%s-%s累计净值(%s)和前七天平均净值(%s)相等，建议观望' % (week_data[0]['日期'], week_data[6]['日期'], week_data[7]['累计净值为'], avg))
+    #     # print('差额为：%s' % (avg - week_data[7]['累计净值为']))
+    elif week_data[7]['累计净值为'] >= avg:
+        # # print(week_data)
+        # SumJZ = week_data[7]['累计净值为'] *OutData['总份额']
+        # SumTR = OutData['总投入']
+        # # print(OutData['下次定投日'],SumTR,SumJZ)
+        # OutData.update({'总价值': SumJZ,
+                        # '总收益率': SumSY})
+        print("下次定投日：%s    该日净值为：%s    该日投入：%s     总收益率：%s    总投入：%s    总价值：%s    总份额：%s" % (
+        week_data[7]['日期'], week_data[7]['累计净值为'], OutData['日投入'], OutData['总收益率'], OutData['总投入'], OutData['总价值'], OutData['总份额']))
     else:
         print(">>>报错了兄弟:4<<<")
+        return
+        # print(">>>报错了兄弟:4<<<")
 
 
 def average(week_data):    ##计算过去7天净值平均值##
     try:
         sum = 0
-        # print(len(week_data))
-        for j in range(-1, len(week_data)-1):
+        for j in range(0, 7):
             sum = sum + week_data[j]['累计净值为']
         # print('从%s到%s的平均净值为：%s' % (week_data[0]['日期'], week_data[6]['日期'], sum / 7))
-        return sum/len(week_data)
+        return sum/7
     except:
         print(">>>报错了兄弟:2<<<")
 
 def main():
     print("[+] ========= %s %s " % (id, GetName()))
-    Numlen = json.loads(session.get("http://api.fund.eastmoney.com/f10/lsjz", params=paramsGet, headers=headers,
-                               proxies=proxies).text)['TotalCount']
-    paramsGet.update({"pageSize":Numlen})
-    Data = GetData()
-    first =len(Data) -1
-    print('首次投资日：%s' % Data[first]['日期'])
-    for i in range(0, len(Data)):
+    Data=GetData()
+    print('首次投资日：%s' % Data[0]['日期'])
+    for i in range(0, len(Data) - 7):
         try:
-            week_data = Data[i:i + 7]
-            # print(week_data)
-            Calculation(week_data, average(week_data))
+                week_data = Data[i:i + 8]
+                Calculation(week_data, average(week_data))
         except:
             print(">>>报错了兄弟:3<<<")
     print('最后投资%s' % Data[-1]['日期'])
+    #平均值
 
 if __name__ == '__main__':
     main()
+    # GetData()
+
+
